@@ -11,6 +11,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -105,14 +108,15 @@
             cursor: pointer;
         }
 
-        .juz-mapping {
+        .juz-indicator {
             font-size: 0.75rem;
-            color: #6b7280;
+            color: #059669;
             margin-top: 2px;
+            font-weight: 600;
         }
 
-        .dark .juz-mapping {
-            color: #9ca3af;
+        .dark .juz-indicator {
+            color: #10b981;
         }
 
         .attendance-select {
@@ -160,6 +164,44 @@
             font-size: 0.75rem;
             font-weight: bold;
         }
+
+        .progress-indicator {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .dark .progress-indicator {
+            background: #374151;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .status-connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .status-connecting {
+            background: #f59e0b;
+            color: white;
+        }
     </style>
 
     <script>
@@ -178,12 +220,23 @@
 </head>
 
 <body class="min-h-screen transition-colors duration-200" id="app">
+    <!-- Connection Status Indicator -->
+    <div v-if="!loading" 
+         :class="connectionStatusClass"
+         class="connection-status">
+        <i :class="connectionStatusIcon" class="mr-2"></i>
+        {{ connectionStatusText }}
+    </div>
+
     <!-- Loading Screen -->
     <div v-if="loading" class="fixed inset-0 bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center z-50">
         <div class="text-center text-white">
             <div class="animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent mb-4 mx-auto"></div>
             <h2 class="text-2xl font-bold mb-2">Mutabaah Santri Ibnu Katsir</h2>
             <p class="text-lg opacity-90">Bismillahirrahmanirrahim...</p>
+            <div v-if="connectionStatus === 'connecting'" class="mt-4">
+                <p class="text-sm opacity-75">Menghubungkan ke database...</p>
+            </div>
         </div>
     </div>
 
@@ -359,6 +412,79 @@
         </div>
     </div>
 
+    <!-- Configuration Modal -->
+    <div v-if="showConfigModal" 
+         class="fixed inset-0 z-50 overflow-y-auto modal-overlay"
+         @click.self="closeConfigModal">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4">
+                                <i class="fas fa-cog mr-2 text-emerald-500"></i>
+                                Konfigurasi Database Supabase
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Supabase URL <span class="text-red-500">*</span>
+                                    </label>
+                                    <input type="url" 
+                                           v-model="dbConfig.supabaseUrl"
+                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                           placeholder="https://xxxxxxxx.supabase.co">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Supabase Anon Key <span class="text-red-500">*</span>
+                                    </label>
+                                    <textarea v-model="dbConfig.supabaseKey"
+                                              rows="4"
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+                                </div>
+                                
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    <p class="mb-2">Untuk mendapatkan URL dan Key Supabase:</p>
+                                    <ol class="list-decimal list-inside space-y-1">
+                                        <li>Buka dashboard.supabase.com</li>
+                                        <li>Pilih project Anda</li>
+                                        <li>Pergi ke Settings → API</li>
+                                        <li>Copy URL dan anon public key</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button @click="saveDbConfig()" 
+                            :disabled="isConnecting || !dbConfig.supabaseUrl || !dbConfig.supabaseKey"
+                            :class="isConnecting || !dbConfig.supabaseUrl || !dbConfig.supabaseKey ? 'opacity-50 cursor-not-allowed' : 'hover:bg-emerald-700'"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-600 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <span v-if="!isConnecting">
+                            <i class="fas fa-save mr-2"></i>Simpan & Koneksi
+                        </span>
+                        <span v-else class="flex items-center">
+                            <div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                            Menghubungkan...
+                        </span>
+                    </button>
+                    
+                    <button @click="closeConfigModal()" 
+                            type="button"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        <i class="fas fa-times mr-2"></i>Batal
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Container -->
     <div class="min-h-screen" 
          :class="{ 'bg-gradient-to-br from-emerald-50 via-green-50 to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700': true, 'dark': darkMode }">
@@ -366,7 +492,12 @@
         <!-- Login Screen -->
         <div v-if="!isLoggedIn && !isPublicAccess" class="min-h-screen flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 w-full max-w-md">
-                <div class="flex justify-end mb-4">
+                <div class="flex justify-between items-center mb-4">
+                    <button @click="openConfigModal()" 
+                            class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                            title="Konfigurasi Database">
+                        <i class="fas fa-cog"></i>
+                    </button>
                     <button @click="toggleDarkMode()" 
                             class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
                         <i v-if="!darkMode" class="fas fa-moon"></i>
@@ -454,6 +585,12 @@
                                         class="p-2 rounded-lg bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors text-white">
                                     <i v-if="!darkMode" class="fas fa-moon"></i>
                                     <i v-else class="fas fa-sun"></i>
+                                </button>
+                                
+                                <button v-if="!isPublicAccess" @click="openConfigModal()" 
+                                        class="p-2 rounded-lg bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors text-white"
+                                        title="Konfigurasi Database">
+                                    <i class="fas fa-cog"></i>
                                 </button>
                             </div>
 
@@ -591,7 +728,9 @@
                                     <select v-model="tahfizhFilter.angkatan" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                         <option value="">Semua Angkatan</option>
-                                        <option v-for="angkatan in getActiveAngkatanList()" :key="angkatan" :value="angkatan">
+                                        <option v-for="angkatan in uniqueAngkatanList" 
+                                               :key="`tahfizh-filter-${angkatan}`" 
+                                               :value="angkatan">
                                             Angkatan {{ angkatan }}
                                         </option>
                                     </select>
@@ -635,7 +774,7 @@
                                         </div>
                                         <div class="text-right">
                                             <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                                                Juz {{ getSantriProgressJuz(santri.id) }}
+                                                Juz {{ getSantriCurrentJuz(santri.id) }}
                                             </div>
                                             <div class="text-sm font-medium text-gray-900 dark:text-white">
                                                 Hal. {{ getSantriProgressPage(santri.id) }}
@@ -668,9 +807,9 @@
                                         </div>
                                         <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
                                             <div class="text-sm font-bold text-purple-600 dark:text-purple-400">
-                                                {{ getMonthlyMurojaahJuz(santri.id) }}
+                                                {{ getMonthlyMurojaahTotal(santri.id) }}
                                             </div>
-                                            <div class="text-xs text-purple-600 dark:text-purple-400">Juz Murojaah</div>
+                                            <div class="text-xs text-purple-600 dark:text-purple-400">Total Murojaah</div>
                                         </div>
                                         <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
                                             <div class="text-sm font-bold text-green-600 dark:text-green-400">
@@ -750,7 +889,7 @@
                                 <i class="fas fa-chart-bar mr-2 text-emerald-500"></i>Progress per Angkatan
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div v-for="angkatan in getActiveAngkatanList()" :key="angkatan" 
+                                <div v-for="angkatan in uniqueAngkatanList" :key="angkatan" 
                                      class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                                     <div class="flex items-center justify-between mb-2">
                                         <h4 class="font-semibold text-gray-900 dark:text-white">Angkatan {{ angkatan }}</h4>
@@ -758,13 +897,13 @@
                                             {{ getAngkatanCount(angkatan) }} santri
                                         </span>
                                     </div>
-                                   <!-- <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
+                                    <div class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mb-2">
                                         Juz {{ getAngkatanAverageProgressJuz(angkatan) }}
                                     </div>
                                     <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                         <div :class="`angkatan-${angkatan}`" class="h-2 rounded-full transition-all duration-500" 
                                              :style="`width: ${getAngkatanAverageProgressPercentage(angkatan)}%`"></div>
-                                    </div>-->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -841,7 +980,9 @@
                                     <select v-model="santriFilter.angkatan" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                         <option value="">Semua Angkatan</option>
-                                        <option v-for="angkatan in getActiveAngkatanList()" :key="angkatan" :value="angkatan">
+                                        <option v-for="angkatan in uniqueAngkatanList" 
+                                               :key="`manage-santri-${angkatan}`" 
+                                               :value="angkatan">
                                             Angkatan {{ angkatan }}
                                         </option>
                                     </select>
@@ -892,7 +1033,7 @@
                                     
                                     <div class="text-center">
                                         <div class="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                                            Juz {{ getSantriProgressJuz(santri.id) }}
+                                            Juz {{ getSantriCurrentJuz(santri.id) }}
                                         </div>
                                         <div class="text-sm text-gray-600 dark:text-gray-400">Halaman {{ getSantriProgressPage(santri.id) }}</div>
                                         <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
@@ -928,47 +1069,35 @@
                                                         Angkatan {{ santri.angkatan }}
                                                     </span>
                                                     <span class="text-sm text-gray-600 dark:text-gray-400">
-                                                        Progress: Juz {{ getSantriProgressJuz(santri.id) }}, Hal. {{ getSantriProgressPage(santri.id) }}
+                                                        Progress: Juz {{ getSantriCurrentJuz(santri.id) }}, Hal. {{ getSantriProgressPage(santri.id) }}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Juz Setoran
+                                                    Halaman Awal <span class="text-red-500">*</span>
                                                 </label>
-                                                <select v-model="tahfizhInput[santri.id].juz"
-                                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                                                    <option value="">Pilih Juz</option>
-                                                    <option v-for="juz in juzList" :key="juz.number" :value="juz.number">
-                                                        Juz {{ juz.number }}
-                                                    </option>
-                                                </select>
-                                                <div v-if="tahfizhInput[santri.id].juz" class="juz-mapping">
-                                                    Halaman: {{ getJuzPageRange(tahfizhInput[santri.id].juz) }}
+                                                <input type="number" 
+                                                       v-model.number="tahfizhInput[santri.id].startPage"
+                                                       min="1" max="604"
+                                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                       placeholder="1">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Halaman Akhir <span class="text-red-500">*</span>
+                                                </label>
+                                                <input type="number" 
+                                                       v-model.number="tahfizhInput[santri.id].endPage"
+                                                       min="1" max="604"
+                                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                       placeholder="1">
+                                                <div v-if="tahfizhInput[santri.id].startPage && tahfizhInput[santri.id].endPage" class="juz-indicator">
+                                                    Juz: {{ getJuzFromPages(tahfizhInput[santri.id].startPage, tahfizhInput[santri.id].endPage) }}
                                                 </div>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Halaman Awal
-                                                </label>
-                                                <input type="number" 
-                                                       v-model="tahfizhInput[santri.id].startPage"
-                                                       min="1" max="604"
-                                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                       placeholder="1">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Halaman Akhir
-                                                </label>
-                                                <input type="number" 
-                                                       v-model="tahfizhInput[santri.id].endPage"
-                                                       min="1" max="604"
-                                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                       placeholder="1">
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -1013,8 +1142,8 @@
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                                                 <div>
                                                     <strong>Setoran:</strong> Halaman {{ getTodayTahfizhProgress(santri.id).startPage }} - {{ getTodayTahfizhProgress(santri.id).endPage }}
-                                                    <span v-if="getTodayTahfizhProgress(santri.id).juz" class="ml-2 text-blue-600 dark:text-blue-400">
-                                                        (Juz {{ getTodayTahfizhProgress(santri.id).juz }})
+                                                    <span class="ml-2 text-blue-600 dark:text-blue-400">
+                                                        ({{ getJuzFromPages(getTodayTahfizhProgress(santri.id).startPage, getTodayTahfizhProgress(santri.id).endPage) }})
                                                     </span>
                                                 </div>
                                                 <div v-if="getTodayTahfizhProgress(santri.id).murojaahJuz && getTodayTahfizhProgress(santri.id).murojaahJuz > 0">
@@ -1315,7 +1444,9 @@
                                     <select v-model="attendanceFilter.angkatan" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                         <option value="">Semua Angkatan</option>
-                                        <option v-for="angkatan in getActiveAngkatanList()" :key="angkatan" :value="angkatan">
+                                        <option v-for="angkatan in uniqueAngkatanList" 
+                                               :key="`attendance-filter-${angkatan}`" 
+                                               :value="angkatan">
                                             Angkatan {{ angkatan }}
                                         </option>
                                     </select>
@@ -1460,7 +1591,9 @@
                                     <select v-model="ibadahFilter.angkatan" 
                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                         <option value="">Semua Angkatan</option>
-                                        <option v-for="angkatan in getActiveAngkatanList()" :key="angkatan" :value="angkatan">
+                                        <option v-for="angkatan in uniqueAngkatanList" 
+                                               :key="`ibadah-filter-${angkatan}`" 
+                                               :value="angkatan">
                                             Angkatan {{ angkatan }}
                                         </option>
                                     </select>
@@ -1592,9 +1725,20 @@
 
     <script>
         const { createApp, ref, computed, onMounted, watch, reactive, nextTick } = Vue;
+        const { createClient } = supabase;
 
         const app = createApp({
             setup() {
+                // Supabase configuration
+                const supabaseClient = ref(null);
+                const connectionStatus = ref('disconnected'); // 'connected', 'disconnected', 'connecting'
+                const showConfigModal = ref(false);
+                const isConnecting = ref(false);
+                const dbConfig = reactive({
+                    supabaseUrl: 'https://sqxsuejtomqyqnyihsjq.supabase.co',
+                    supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxeHN1ZWp0b21xeXFueWloc2pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NzM2NzEsImV4cCI6MjA2ODQ0OTY3MX0.5LWfwWk-40lR1gsU0c6InP_NgGg3scMSbsEg7wcb3OY'
+                });
+
                 // Core state
                 const loading = ref(true);
                 const isLoggedIn = ref(false);
@@ -1707,8 +1851,8 @@
                     { value: 'tanpa_keterangan', label: 'Tanpa Keterangan', color: 'gray' }
                 ]);
 
-                // Juz list for dropdown
-                const juzList = ref([
+                // Juz mapping for calculations
+                const juzMapping = ref([
                     { number: 1, startPage: 1, endPage: 21 },
                     { number: 2, startPage: 22, endPage: 41 },
                     { number: 3, startPage: 42, endPage: 61 },
@@ -1810,6 +1954,29 @@
                     return dates;
                 }
 
+                // Function to get Juz from page range
+                const getJuzFromPages = (startPage, endPage) => {
+                    if (!startPage || !endPage) return '';
+                    
+                    const start = parseInt(startPage);
+                    const end = parseInt(endPage);
+                    
+                    // Find juz for start page
+                    const startJuz = juzMapping.value.find(juz => start >= juz.startPage && start <= juz.endPage);
+                    // Find juz for end page
+                    const endJuz = juzMapping.value.find(juz => end >= juz.startPage && end <= juz.endPage);
+                    
+                    if (startJuz && endJuz) {
+                        if (startJuz.number === endJuz.number) {
+                            return `Juz ${startJuz.number}`;
+                        } else {
+                            return `Juz ${startJuz.number} - ${endJuz.number}`;
+                        }
+                    }
+                    
+                    return '';
+                };
+
                 const getCurrentDateString = () => {
                     const jakarta = getJakartaDate();
                     return jakarta.toLocaleDateString('id-ID', {
@@ -1845,11 +2012,6 @@
                     });
                 };
 
-                const getJuzPageRange = (juzNumber) => {
-                    const juz = juzList.value.find(j => j.number === parseInt(juzNumber));
-                    return juz ? `${juz.startPage}-${juz.endPage}` : '';
-                };
-
                 // Navigation functions
                 const navigateDate = (direction) => {
                     const currentDate = new Date(selectedDate.value);
@@ -1861,13 +2023,344 @@
                     selectedDate.value = getCurrentDate();
                 };
 
+                // Supabase functions
+                const initializeSupabase = () => {
+                    try {
+                        if (dbConfig.supabaseUrl && dbConfig.supabaseKey) {
+                            supabaseClient.value = createClient(dbConfig.supabaseUrl, dbConfig.supabaseKey);
+                            return true;
+                        }
+                        return false;
+                    } catch (error) {
+                        console.error('Error initializing Supabase:', error);
+                        return false;
+                    }
+                };
+
+                const testConnection = async () => {
+                    if (!supabaseClient.value) return false;
+                    
+                    try {
+                        connectionStatus.value = 'connecting';
+                        const { data, error } = await supabaseClient.value.from('musyrif').select('count').limit(1);
+                        
+                        if (error) {
+                            console.error('Connection test failed:', error);
+                            connectionStatus.value = 'disconnected';
+                            return false;
+                        }
+                        
+                        connectionStatus.value = 'connected';
+                        return true;
+                    } catch (error) {
+                        console.error('Connection test error:', error);
+                        connectionStatus.value = 'disconnected';
+                        return false;
+                    }
+                };
+
+                const setupRealtimeSubscriptions = () => {
+                    if (!supabaseClient.value || connectionStatus.value !== 'connected') return;
+
+                    // Subscribe to musyrif changes
+                    supabaseClient.value
+                        .channel('musyrif_changes')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'musyrif' }, 
+                            payload => {
+                                console.log('Musyrif change received:', payload);
+                                syncFromSupabase();
+                            })
+                        .subscribe();
+
+                    // Subscribe to santri changes
+                    supabaseClient.value
+                        .channel('santri_changes')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'santri' }, 
+                            payload => {
+                                console.log('Santri change received:', payload);
+                                syncFromSupabase();
+                            })
+                        .subscribe();
+
+                    // Subscribe to tahfizh_progress changes
+                    supabaseClient.value
+                        .channel('tahfizh_changes')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'tahfizh_progress' }, 
+                            payload => {
+                                console.log('Tahfizh change received:', payload);
+                                syncFromSupabase();
+                            })
+                        .subscribe();
+
+                    // Subscribe to ibadah_progress changes
+                    supabaseClient.value
+                        .channel('ibadah_changes')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'ibadah_progress' }, 
+                            payload => {
+                                console.log('Ibadah change received:', payload);
+                                syncFromSupabase();
+                            })
+                        .subscribe();
+
+                    // Subscribe to attendance_progress changes
+                    supabaseClient.value
+                        .channel('attendance_changes')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_progress' }, 
+                            payload => {
+                                console.log('Attendance change received:', payload);
+                                syncFromSupabase();
+                            })
+                        .subscribe();
+                };
+
+                const syncToSupabase = async () => {
+                    if (!supabaseClient.value || connectionStatus.value !== 'connected') return;
+
+                    try {
+                        autoSaving.value = true;
+
+                        // Sync musyrif data
+                        for (const musyrif of musyrifList.value) {
+                            await supabaseClient.value
+                                .from('musyrif')
+                                .upsert({
+                                    id: musyrif.id,
+                                    name: musyrif.name,
+                                    username: musyrif.username,
+                                    password: musyrif.password,
+                                    updated_at: new Date().toISOString()
+                                });
+                        }
+
+                        // Sync santri data
+                        for (const santri of santriList.value) {
+                            await supabaseClient.value
+                                .from('santri')
+                                .upsert({
+                                    id: santri.id,
+                                    name: santri.name,
+                                    angkatan: santri.angkatan,
+                                    musyrif_id: santri.musyrifId,
+                                    updated_at: new Date().toISOString()
+                                });
+                        }
+
+                        // Sync progress data
+                        for (const [santriId, progressData] of Object.entries(tahfizhProgress.value)) {
+                            for (const [date, dayProgress] of Object.entries(progressData)) {
+                                await supabaseClient.value
+                                    .from('tahfizh_progress')
+                                    .upsert({
+                                        santri_id: santriId,
+                                        date: date,
+                                        start_page: dayProgress.startPage,
+                                        end_page: dayProgress.endPage,
+                                        murojaah_juz: dayProgress.murojaahJuz || 0,
+                                        exam: dayProgress.exam,
+                                        timestamp: dayProgress.timestamp,
+                                        updated_at: new Date().toISOString()
+                                    });
+                            }
+                        }
+
+                        // Sync ibadah data
+                        for (const [santriId, progressData] of Object.entries(ibadahProgress.value)) {
+                            for (const [date, dayProgress] of Object.entries(progressData)) {
+                                await supabaseClient.value
+                                    .from('ibadah_progress')
+                                    .upsert({
+                                        santri_id: santriId,
+                                        date: date,
+                                        progress_data: JSON.stringify(dayProgress),
+                                        timestamp: dayProgress.timestamp,
+                                        updated_at: new Date().toISOString()
+                                    });
+                            }
+                        }
+
+                        // Sync attendance data
+                        for (const [santriId, progressData] of Object.entries(attendanceProgress.value)) {
+                            for (const [date, dayProgress] of Object.entries(progressData)) {
+                                await supabaseClient.value
+                                    .from('attendance_progress')
+                                    .upsert({
+                                        santri_id: santriId,
+                                        date: date,
+                                        attendance_data: JSON.stringify(dayProgress),
+                                        timestamp: dayProgress.timestamp,
+                                        updated_at: new Date().toISOString()
+                                    });
+                            }
+                        }
+
+                        autoSaving.value = false;
+                    } catch (error) {
+                        console.error('Error syncing to Supabase:', error);
+                        autoSaving.value = false;
+                        connectionStatus.value = 'disconnected';
+                    }
+                };
+
+                const syncFromSupabase = async () => {
+                    if (!supabaseClient.value || connectionStatus.value !== 'connected') return;
+
+                    try {
+                        // Fetch musyrif data
+                        const { data: musyrifData } = await supabaseClient.value
+                            .from('musyrif')
+                            .select('*');
+                        
+                        if (musyrifData) {
+                            musyrifList.value = musyrifData.map(item => ({
+                                id: item.id,
+                                name: item.name,
+                                username: item.username,
+                                password: item.password
+                            }));
+                        }
+
+                        // Fetch santri data
+                        const { data: santriData } = await supabaseClient.value
+                            .from('santri')
+                            .select('*');
+                        
+                        if (santriData) {
+                            santriList.value = santriData.map(item => ({
+                                id: item.id,
+                                name: item.name,
+                                angkatan: item.angkatan,
+                                musyrifId: item.musyrif_id
+                            }));
+                        }
+
+                        // Fetch tahfizh progress
+                        const { data: tahfizhData } = await supabaseClient.value
+                            .from('tahfizh_progress')
+                            .select('*');
+                        
+                        if (tahfizhData) {
+                            const newTahfizhProgress = {};
+                            tahfizhData.forEach(item => {
+                                if (!newTahfizhProgress[item.santri_id]) {
+                                    newTahfizhProgress[item.santri_id] = {};
+                                }
+                                newTahfizhProgress[item.santri_id][item.date] = {
+                                    date: item.date,
+                                    startPage: item.start_page,
+                                    endPage: item.end_page,
+                                    murojaahJuz: item.murojaah_juz,
+                                    exam: item.exam,
+                                    timestamp: item.timestamp
+                                };
+                            });
+                            tahfizhProgress.value = newTahfizhProgress;
+                        }
+
+                        // Fetch ibadah progress
+                        const { data: ibadahData } = await supabaseClient.value
+                            .from('ibadah_progress')
+                            .select('*');
+                        
+                        if (ibadahData) {
+                            const newIbadahProgress = {};
+                            ibadahData.forEach(item => {
+                                if (!newIbadahProgress[item.santri_id]) {
+                                    newIbadahProgress[item.santri_id] = {};
+                                }
+                                try {
+                                    newIbadahProgress[item.santri_id][item.date] = JSON.parse(item.progress_data);
+                                } catch (e) {
+                                    console.error('Error parsing ibadah data:', e);
+                                }
+                            });
+                            ibadahProgress.value = newIbadahProgress;
+                        }
+
+                        // Fetch attendance progress
+                        const { data: attendanceData } = await supabaseClient.value
+                            .from('attendance_progress')
+                            .select('*');
+                        
+                        if (attendanceData) {
+                            const newAttendanceProgress = {};
+                            attendanceData.forEach(item => {
+                                if (!newAttendanceProgress[item.santri_id]) {
+                                    newAttendanceProgress[item.santri_id] = {};
+                                }
+                                try {
+                                    newAttendanceProgress[item.santri_id][item.date] = JSON.parse(item.attendance_data);
+                                } catch (e) {
+                                    console.error('Error parsing attendance data:', e);
+                                }
+                            });
+                            attendanceProgress.value = newAttendanceProgress;
+                        }
+
+                    } catch (error) {
+                        console.error('Error syncing from Supabase:', error);
+                        connectionStatus.value = 'disconnected';
+                    }
+                };
+
+                // Configuration functions
+                const openConfigModal = () => {
+                    showConfigModal.value = true;
+                };
+
+                const closeConfigModal = () => {
+                    showConfigModal.value = false;
+                };
+
+                const saveDbConfig = async () => {
+                    isConnecting.value = true;
+                    
+                    try {
+                        // Save config to localStorage
+                        localStorage.setItem('supabaseUrl', dbConfig.supabaseUrl);
+                        localStorage.setItem('supabaseKey', dbConfig.supabaseKey);
+                        
+                        // Initialize Supabase client
+                        const success = initializeSupabase();
+                        if (success) {
+                            const connected = await testConnection();
+                            if (connected) {
+                                setupRealtimeSubscriptions();
+                                await syncFromSupabase();
+                                showNotification('Berhasil terhubung ke database!', 'success');
+                                closeConfigModal();
+                            } else {
+                                showNotification('Gagal terhubung ke database. Periksa URL dan Key.', 'error');
+                            }
+                        } else {
+                            showNotification('Konfigurasi tidak valid', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error saving config:', error);
+                        showNotification('Error: ' + error.message, 'error');
+                    } finally {
+                        isConnecting.value = false;
+                    }
+                };
+
+                const loadDbConfig = () => {
+                    const savedUrl = localStorage.getItem('supabaseUrl');
+                    const savedKey = localStorage.getItem('supabaseKey');
+                    
+                    if (savedUrl && savedKey) {
+                        dbConfig.supabaseUrl = savedUrl;
+                        dbConfig.supabaseKey = savedKey;
+                        return true;
+                    }
+                    return false;
+                };
+
                 // Computed properties
                 const totalSantri = computed(() => santriList.value.length);
                 const totalMusyrif = computed(() => musyrifList.value.length);
 
                 const averageProgress = computed(() => {
                     if (santriList.value.length === 0) return 0;
-                    const total = santriList.value.reduce((sum, santri) => sum + getSantriProgressJuz(santri.id), 0);
+                    const total = santriList.value.reduce((sum, santri) => sum + getSantriCurrentJuz(santri.id), 0);
                     return Math.round(total / santriList.value.length);
                 });
 
@@ -1904,6 +2397,17 @@
                 const mySantri = computed(() => {
                     if (!currentUser.value || !isMusyrif.value) return [];
                     return santriList.value.filter(santri => santri.musyrifId === currentUser.value.id);
+                });
+
+                // FIXED: Unique angkatan list
+                const uniqueAngkatanList = computed(() => {
+                    const angkatanSet = new Set();
+                    santriList.value.forEach(santri => {
+                        if (santri.angkatan != null && santri.angkatan !== '') {
+                            angkatanSet.add(santri.angkatan);
+                        }
+                    });
+                    return Array.from(angkatanSet).sort((a, b) => a - b);
                 });
 
                 const filteredSantri = computed(() => {
@@ -1993,6 +2497,31 @@
                         if (existing) return false;
                     }
                     return true;
+                });
+
+                // Connection status computed
+                const connectionStatusClass = computed(() => {
+                    switch (connectionStatus.value) {
+                        case 'connected': return 'status-connected';
+                        case 'connecting': return 'status-connecting';
+                        default: return 'status-disconnected';
+                    }
+                });
+
+                const connectionStatusIcon = computed(() => {
+                    switch (connectionStatus.value) {
+                        case 'connected': return 'fas fa-wifi';
+                        case 'connecting': return 'fas fa-spinner fa-spin';
+                        default: return 'fas fa-wifi-slash';
+                    }
+                });
+
+                const connectionStatusText = computed(() => {
+                    switch (connectionStatus.value) {
+                        case 'connected': return 'Terhubung';
+                        case 'connecting': return 'Menghubungkan...';
+                        default: return 'Tidak Terhubung';
+                    }
                 });
 
                 // Methods
@@ -2302,14 +2831,6 @@
                     return santriList.value.filter(santri => santri.musyrifId === musyrifId);
                 };
 
-                const getActiveAngkatanList = () => {
-                    const angkatanSet = new Set();
-                    santriList.value.forEach(santri => {
-                        angkatanSet.add(santri.angkatan);
-                    });
-                    return Array.from(angkatanSet).sort((a, b) => a - b);
-                };
-
                 const getAngkatanCount = (angkatan) => {
                     return santriList.value.filter(santri => santri.angkatan === angkatan).length;
                 };
@@ -2317,7 +2838,7 @@
                 const getAngkatanAverageProgressJuz = (angkatan) => {
                     const santriAngkatan = santriList.value.filter(santri => santri.angkatan === angkatan);
                     if (santriAngkatan.length === 0) return 0;
-                    const total = santriAngkatan.reduce((sum, santri) => sum + getSantriProgressJuz(santri.id), 0);
+                    const total = santriAngkatan.reduce((sum, santri) => sum + getSantriCurrentJuz(santri.id), 0);
                     return Math.round(total / santriAngkatan.length);
                 };
 
@@ -2328,7 +2849,7 @@
                     return Math.round(total / santriAngkatan.length);
                 };
 
-                // Progress functions (FIXED)
+                // Progress functions
                 const getSantriProgressPage = (santriId) => {
                     const progress = tahfizhProgress.value[santriId];
                     if (!progress) return 0;
@@ -2343,13 +2864,13 @@
                     return maxPage;
                 };
 
-                const getSantriProgressJuz = (santriId) => {
+                const getSantriCurrentJuz = (santriId) => {
                     const page = getSantriProgressPage(santriId);
                     if (page === 0) return 0;
                     
                     // Find which juz this page belongs to
-                    for (let i = 0; i < juzList.value.length; i++) {
-                        const juz = juzList.value[i];
+                    for (let i = 0; i < juzMapping.value.length; i++) {
+                        const juz = juzMapping.value[i];
                         if (page >= juz.startPage && page <= juz.endPage) {
                             return juz.number;
                         }
@@ -2383,7 +2904,7 @@
                     return totalPages;
                 };
 
-                const getMonthlyMurojaahJuz = (santriId) => {
+                const getMonthlyMurojaahTotal = (santriId) => {
                     const progress = tahfizhProgress.value[santriId];
                     if (!progress) return 0;
                     
@@ -2437,7 +2958,6 @@
                     mySantri.value.forEach(santri => {
                         if (!tahfizhInput.value[santri.id]) {
                             tahfizhInput.value[santri.id] = {
-                                juz: '',
                                 startPage: '',
                                 endPage: '',
                                 murojaahJuz: 0,
@@ -2614,7 +3134,6 @@
                     
                     tahfizhProgress.value[santriId][today] = {
                         date: today,
-                        juz: input.juz || null,
                         startPage: parseInt(input.startPage),
                         endPage: parseInt(input.endPage),
                         murojaahJuz: parseInt(input.murojaahJuz) || 0,
@@ -2624,7 +3143,6 @@
                     
                     // Reset form
                     tahfizhInput.value[santriId] = {
-                        juz: '',
                         startPage: '',
                         endPage: '',
                         murojaahJuz: 0,
@@ -2753,8 +3271,6 @@
                 };
 
                 const openIbadahDetail = (santriId, date) => {
-                    // This could open a modal for detailed editing
-                    // For now, we'll just show an alert with the current status
                     const completion = getIbadahCompletion(santriId, date);
                     const santri = santriList.value.find(s => s.id === santriId);
                     const formattedDate = formatDate(date);
@@ -2888,8 +3404,14 @@
                     autoSaving.value = true;
                     saveToStorage();
                     
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    autoSaving.value = false;
+                    // Also sync to Supabase if connected
+                    if (connectionStatus.value === 'connected') {
+                        await syncToSupabase();
+                    }
+                    
+                    setTimeout(() => {
+                        autoSaving.value = false;
+                    }, 1000);
                 };
 
                 // Watchers
@@ -2908,10 +3430,33 @@
                     }
                 });
 
+                // Watch connection status
+                watch(connectionStatus, (newStatus) => {
+                    if (newStatus === 'connected') {
+                        setupRealtimeSubscriptions();
+                        syncFromSupabase();
+                    }
+                });
+
                 // Lifecycle
                 onMounted(async () => {
-                    // Load data from localStorage
+                    // Load database config
+                    const hasConfig = loadDbConfig();
+                    
+                    // Load data from localStorage first
                     loadFromStorage();
+                    
+                    // Try to connect to Supabase if config exists
+                    if (hasConfig) {
+                        const initialized = initializeSupabase();
+                        if (initialized) {
+                            const connected = await testConnection();
+                            if (connected) {
+                                setupRealtimeSubscriptions();
+                                await syncFromSupabase();
+                            }
+                        }
+                    }
                     
                     // Auto-save interval
                     setInterval(() => {
@@ -2941,6 +3486,15 @@
                     loginError,
                     selectedDate,
                     
+                    // Supabase state
+                    connectionStatus,
+                    connectionStatusClass,
+                    connectionStatusIcon,
+                    connectionStatusText,
+                    showConfigModal,
+                    isConnecting,
+                    dbConfig,
+                    
                     // UI state
                     showSantriModal,
                     showMusyrifModal,
@@ -2960,7 +3514,7 @@
                     musyrifList,
                     santriList,
                     ibadahList,
-                    juzList,
+                    juzMapping,
                     halaqahList,
                     attendanceStatusOptions,
                     notifications,
@@ -2976,6 +3530,7 @@
                     todayAttendancePercentage,
                     availableMonths,
                     mySantri,
+                    uniqueAngkatanList,
                     filteredSantri,
                     filteredSantriForRecap,
                     filteredSantriForIbadah,
@@ -2993,7 +3548,7 @@
                     getAvailableMonths,
                     getDaysInMonth,
                     getDateRange,
-                    getJuzPageRange,
+                    getJuzFromPages,
                     navigateDate,
                     resetToToday,
                     toggleDarkMode,
@@ -3001,31 +3556,43 @@
                     removeNotification,
                     getNotificationClass,
                     getNotificationIcon,
+                    
+                    // Database methods
+                    openConfigModal,
+                    closeConfigModal,
+                    saveDbConfig,
+                    
+                    // Auth methods
                     login,
                     logout,
                     accessPublic,
                     backToLogin,
+                    
+                    // Santri management
                     openSantriModal,
                     closeSantriModal,
                     saveSantri,
                     editSantri,
                     deleteSantri,
+                    
+                    // Musyrif management
                     openMusyrifModal,
                     closeMusyrifModal,
                     saveMusyrif,
                     editMusyrif,
                     deleteMusyrif,
+                    
+                    // Helper functions
                     getMusyrifName,
                     getSantriByMusyrif,
-                    getActiveAngkatanList,
                     getAngkatanCount,
                     getAngkatanAverageProgressJuz,
                     getAngkatanAverageProgressPercentage,
                     getSantriProgressPage,
-                    getSantriProgressJuz,
+                    getSantriCurrentJuz,
                     getSantriProgressPercentage,
                     getMonthlySetoranPages,
-                    getMonthlyMurojaahJuz,
+                    getMonthlyMurojaahTotal,
                     getMonthlyExamCount,
                     getLatestExam,
                     canSaveTahfizh,
@@ -3042,6 +3609,7 @@
                     getMonthlyIbadahAverage,
                     getMonthlyIbadahSummary,
                     openIbadahDetail,
+                    
                     // Attendance methods
                     saveAttendance,
                     getAttendanceStatus,
