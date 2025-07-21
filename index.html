@@ -1893,7 +1893,7 @@
                     { key: 'piket', name: 'Piket', icon: 'fas fa-moon', color: 'text-purple-500' },
                     { key: 'dirosah', name: 'Dirosah', icon: 'fas fa-moon', color: 'text-indigo-500' },
                     { key: 'olahraga', name: 'Olahraga', icon: 'fas fa-star', color: 'text-blue-500' },
-                    { key: '5s', name: '5 S', icon: 'fas fa-sun', color: 'text-green-500' },
+                    { key: 'lima_s', name: '5 S', icon: 'fas fa-sun', color: 'text-green-500' },
                     { key: 'baca', name: 'Baca buku', icon: 'fas fa-book-quran', color: 'text-emerald-500' },
                     { key: 'murojaahsholat', name: 'Murojaah Dalam Sholat (5)', icon: 'fas fa-hands', color: 'text-teal-500' },
                     { key: 'sedekah', name: 'Sedekah', icon: 'fas fa-hand-holding-heart', color: 'text-pink-500' }
@@ -3158,7 +3158,9 @@
                     return tahfizhProgress.value[santriId]?.[today];
                 };
 
-                const toggleIbadah = (santriId, ibadahKey, date, value) => {
+               const toggleIbadah = (santriId, ibadahKey, date, value) => {
+                    console.log(`Toggling ibadah: ${santriId}, ${ibadahKey}, ${date}, ${value}`);
+                    
                     if (!ibadahProgress.value[santriId]) {
                         ibadahProgress.value[santriId] = {};
                     }
@@ -3170,10 +3172,10 @@
                         };
                         
                         // Initialize all ibadah for this date
-                        ibadahList.value.forEach(ibadah => {
-                            ibadahProgress.value[santriId][date][ibadah.key] = false;
-                        });
-                    }
+                                ibadahList.value.forEach(ibadah => {
+                        ibadahProgress.value[santriId][date][ibadah.key] = false;
+                    });
+                }
                     
                     ibadahProgress.value[santriId][date][ibadahKey] = value;
                     ibadahProgress.value[santriId][date].timestamp = new Date().toISOString();
