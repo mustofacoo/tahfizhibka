@@ -3485,32 +3485,38 @@
                     };
                 };
 
-            const openIbadahDetail = (santriId, date) => {
-                const completion = getIbadahCompletion(santriId, date);
-                const santri = santriList.value.find(s => s.id === santriId);
-                const formattedDate = formatDate(date);
-                const incompleteIbadah = getIncompleteIbadahList(santriId, date);
-                const completedCount = getCompletedIbadahCount(santriId, date);
-                const totalIbadah = ibadahList.value.length;
-                
-                let message = `${santri.name} - ${formattedDate}\n`;
-                message += `Progress: ${completion}% (${completedCount}/${totalIbadah} selesai)`;
-                
-                if (incompleteIbadah.length > 0) {
-                    message += `\n\nYang belum dikerjakan:\n`;
-                    incompleteIbadah.forEach((ibadah, index) => {
-                        message += `${index + 1}. ${ibadah}\n`;
-                    });
-                } else {
-                    message += `\n\n✅ Semua ibadah telah dikerjakan dengan baik!`;
-                }
-                
-                const notificationType = completion === 100 ? 'success' : 
-                                    completion >= 80 ? 'warning' : 
-                                    completion >= 50 ? 'info' : 'error';
-                
-                showNotification(message, notificationType, 8000); // 8 detik untuk membaca detail
-            };
+                const openIbadahDetail = (santriId, date) => {
+                    try {
+                        const completion = getIbadahCompletion(santriId, date);
+                        const santri = santriList.value.find(s => s.id === santriId);
+                        const formattedDate = formatDate(date);
+                        const incompleteIbadah = getIncompleteIbadahList(santriId, date);
+                        const completedCount = getCompletedIbadahCount(santriId, date);
+                        const totalIbadah = ibadahList.value.length;
+                        
+                        // Buat pesan dasar
+                        let message = `${santri.name} - ${formattedDate} | Progress: ${completion}% (${completedCount}/${totalIbadah} selesai)`;
+                        
+                        // Tambahkan daftar yang belum dikerjakan
+                        if (incompleteIbadah.length > 0) {
+                            message += ` | Belum dikerjakan: ${incompleteIbadah.join(', ')}`;
+                        } else {
+                            message += ` | ✅ Semua ibadah lengkap!`;
+                        }
+                        
+                        // Tentukan tipe notifikasi
+                        const notificationType = completion === 100 ? 'success' : 
+                                            completion >= 80 ? 'warning' : 
+                                            completion >= 50 ? 'info' : 'error';
+                        
+                        showNotification(message, notificationType, 10000);
+                        
+                    } catch (error) {
+                        console.error('Error in openIbadahDetail:', error);
+                        showNotification('Error menampilkan detail ibadah', 'error');
+                    }
+                };
+
                 const getTodayIbadahCompletion = (santriId) => {
                     const today = getCurrentDate();
                     return getIbadahCompletion(santriId, today);
@@ -3866,7 +3872,8 @@
                     getDailyAttendancePercentage,
                     getMonthlyAttendanceAverage,
                     getMonthlyAttendancePercentage,
-                    getMonthlyAttendanceSummary
+                    getMonthlyAttendanceSummary,
+                    getIncompleteIbadahList
                 };
             }
         });
