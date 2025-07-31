@@ -994,7 +994,7 @@
                                         <div class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Halaman Awal <span class="text-red-500">*</span>
+                                                    Halaman Awal 
                                                 </label>
                                                 <input type="number" 
                                                        v-model.number="tahfizhInput[santri.id].startPage"
@@ -1004,7 +1004,7 @@
                                             </div>
                                             <div>
                                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                    Halaman Akhir <span class="text-red-500">*</span>
+                                                    Halaman Akhir 
                                                 </label>
                                                 <input type="number" 
                                                        v-model.number="tahfizhInput[santri.id].endPage"
@@ -2872,12 +2872,14 @@
                     
                     let maxPage = 0;
                     Object.values(progress).forEach(dayProgress => {
-                        if (dayProgress.endPage > maxPage) {
+                        // Hanya hitung jika ada halaman yang valid
+                        if (dayProgress.endPage && dayProgress.endPage > maxPage) {
                             maxPage = dayProgress.endPage;
                         }
                     });
                     
                     return maxPage;
+                    
                 };
 
                 const getSantriCurrentJuz = (santriId) => {
@@ -2912,7 +2914,12 @@
                     
                     dates.forEach(date => {
                         const dayProgress = progress[date];
-                        if (dayProgress && dayProgress.startPage && dayProgress.endPage) {
+                        // Pastikan ada halaman yang valid dan bukan null
+                        if (dayProgress && 
+                            dayProgress.startPage && 
+                            dayProgress.endPage && 
+                            dayProgress.startPage !== null && 
+                            dayProgress.endPage !== null) {
                             totalPages += (dayProgress.endPage - dayProgress.startPage + 1);
                         }
                     });
@@ -2985,8 +2992,16 @@
 
                 const canSaveTahfizh = (santriId) => {
                     const input = tahfizhInput.value[santriId];
-                    return input && input.startPage && input.endPage && 
-                           parseInt(input.startPage) <= parseInt(input.endPage);
+                    if (!input) return false;
+                    
+                    // Jika ada input halaman, validasi harus benar
+                    if (input.startPage || input.endPage) {
+                        if (!input.startPage || !input.endPage) return false;
+                        return parseInt(input.startPage) <= parseInt(input.endPage);
+                    }
+                    
+                    // Jika tidak ada input halaman, tetap bisa simpan (untuk murojaah/ujian saja)
+                    return true;
                 };
 
                 const saveTahfizhProgress = async (santriId) => {
@@ -2997,14 +3012,14 @@
                         tahfizhProgress.value[santriId] = {};
                     }
                     
-                    const progressData = {
-                        date: today,
-                        startPage: parseInt(input.startPage),
-                        endPage: parseInt(input.endPage),
-                        murojaahJuz: parseInt(input.murojaahJuz) || 0,
-                        exam: input.exam.trim() || null,
-                        timestamp: new Date().toISOString()
-                    };
+                const progressData = {
+                    date: today,
+                    startPage: input.startPage ? parseInt(input.startPage) : null,
+                    endPage: input.endPage ? parseInt(input.endPage) : null,
+                    murojaahJuz: parseInt(input.murojaahJuz) || 0,
+                    exam: input.exam ? input.exam.trim() : null,
+                    timestamp: new Date().toISOString()
+                };
                     
                     tahfizhProgress.value[santriId][today] = progressData;
                     
